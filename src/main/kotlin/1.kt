@@ -25,17 +25,17 @@ fun main() {
 
     fun solve2(lines: List<String>): Long {
         return lines.sumOf { l ->
-            val numbers = mutableListOf<Int>()
-            l.forEachIndexed { index, c ->
+            val numbers = l.flatMapIndexed { index, c ->
                 if (c.isDigit()) {
-                    numbers.add(c.digitToInt())
+                    listOf(c.digitToInt())
                 } else {
-                    numberMap.forEachIndexed { indexWord, word ->
-                        val token = l.substring(index, min(l.length, index + word.length))
-                        if (token == word) {
-                            numbers.add(indexWord + 1)
+                    numberMap.mapIndexed { indexWord, word ->
+                        if (l.substring(index, min(l.length, index + word.length)) == word) {
+                            indexWord + 1
+                        } else {
+                            null
                         }
-                    }
+                    }.filterNotNull()
                 }
             }
             "${numbers.first()}${numbers.last()}".toLong()
