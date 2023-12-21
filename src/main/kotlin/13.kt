@@ -1,3 +1,5 @@
+import kotlin.math.max
+
 fun main() {
     val testInput = "#.##..##.\n" +
             "..#.##.#.\n" +
@@ -14,10 +16,6 @@ fun main() {
             "#####.##.\n" +
             "..##..###\n" +
             "#....#..#"
-
-    fun printField(field: List<String>) {
-        field.forEach { println(it) }
-    }
 
     fun isReflection(input: String, column: Int): Boolean {
         var i = 0
@@ -40,23 +38,11 @@ fun main() {
         return (1L..<input.length).filter { isReflection(input, it.toInt()) }
     }
 
-    fun findSolution(field: List<String>): Long? =
-        field.map { getReflections(it).toSet() }.reduce { a, b -> a.intersect(b) }.firstOrNull()
+    fun findSolution(field: List<String>): Set<Long> =
+        field.map { getReflections(it).toSet() }.reduce { a, b -> a.intersect(b) }
 
-    fun solveField(field: List<String>): Long {
-        val horizontalSolution = findSolution(field)
-        val solution =horizontalSolution ?: ((findSolution(rotateField(field)) ?: 0) * 100)
-
-        if (solution == 0L) {
-            println("no solution found:")
-            println("////")
-            printField(field)
-            println("////")
-            printField(rotateField(field))
-            println("////\n")
-        }
-
-        return solution
+    fun solveField(field: List<String>): Pair<Set<Long>, Set<Long>> {
+        return (findSolution(field)) to (findSolution(rotateField(field)).map { it * 100 }).toSet()
     }
 
     fun splitFields(lines: List<String>): MutableList<MutableList<String>> {
@@ -70,16 +56,52 @@ fun main() {
         }
     }
 
+    fun flip(input: Char): Char {
+        return if (input == '.') {
+            '#'
+        } else {
+            '.'
+        }
+    }
+
+    fun solveWithSmudge(field: List<String>, oldSolutions: Pair<Set<Long>, Set<Long>>): Pair<Set<Long>, Set<Long>> {
+        field.forEachIndexed { i, line ->
+            line.forEachIndexed { j, _ ->
+                val newField = field.toMutableList()
+                val newChar = flip(newField[i][j])
+                newField[i] = newField[i].substring(0, j) + newChar + newField[i].substring(j + 1)
+
+                val newSolution = solveField(newField)
+                val veryNewSolution =
+                    (newSolution.first - oldSolutions.first) to (newSolution.second - oldSolutions.second)
+                if ((veryNewSolution.first.any { it > 0 } || veryNewSolution.second.any { it > 0 })) {
+                    return veryNewSolution
+                }
+            }
+        }
+        error("no solution found!")
+    }
+
+    fun solveField2(field: List<String>): Long {
+        val newSolution = solveWithSmudge(field, solveField(field))
+        return max(newSolution.first.firstOrNull() ?: 0L, newSolution.second.firstOrNull() ?: 0L)
+    }
+
     fun solve1(lines: List<String>): Long {
         val fields = splitFields(lines)
         return fields.mapIndexed { i, field ->
             printProgress(i, fields)
-            solveField(field)
+            val solution = solveField(field)
+            max(solution.first.firstOrNull() ?: 0L, solution.second.firstOrNull() ?: 0L)
         }.sum()
     }
 
     fun solve2(lines: List<String>): Long {
-        return -1
+        val fields = splitFields(lines)
+        return fields.mapIndexed { i, field ->
+            printProgress(i, fields)
+            solveField2(field)
+        }.sum()
     }
 
     header(1)
@@ -87,6 +109,6 @@ fun main() {
     solve(::solve1)
 
     header(2)
-    test(::solve2, testInput, 1337)
+    test(::solve2, testInput, 400)
     solve(::solve2)
 }
