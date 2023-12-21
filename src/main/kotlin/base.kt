@@ -44,3 +44,7 @@ fun solveString(solveFn: (List<String>) -> String, input: List<String> = getInpu
 fun getInputFile(): List<String> {
     return IOUtils.readLines(IOUtils::class.java.getResourceAsStream("/$day.txt"), "UTF-8")
 }
+
+fun printProgress(i: Int, lines: List<String>) {
+    print("calculating ${i+1} of ${lines.size}...\r")
+}
