@@ -48,3 +48,9 @@ fun getInputFile(): List<String> {
 fun <T> printProgress(i: Int, lines: List<T>) {
     print("calculating ${i+1} of ${lines.size}...\r")
 }
+
+enum class Direction {
+    NORTH, SOUTH, WEST, EAST
+}
+
+data class Point(val x: Int, val y: Int)

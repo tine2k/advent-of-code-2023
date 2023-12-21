@@ -1,7 +1,3 @@
-enum class Direction {
-    NORTH, SOUTH, WEST, EAST
-}
-
 fun main() {
     val testInput1 = ".....\n" +
             ".S-7.\n" +
