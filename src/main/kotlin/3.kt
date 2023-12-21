@@ -1,3 +1,5 @@
+import java.util.function.BiConsumer
+
 fun main() {
     val testInput =
         "467..114..\n" +
@@ -11,31 +13,29 @@ fun main() {
                 "...\$.*....\n" +
                 ".664.598.."
 
-    fun isSymbol(lines: List<String>, lineIndex: Int, charIndex: Int): Boolean {
-        if (lineIndex < 0 || lineIndex >= lines.size) return false
-        if (charIndex < 0 || charIndex >= lines[lineIndex].length) return false
-        val char = lines[lineIndex][charIndex]
-        return !char.isDigit() && char != '.'
+    data class Symbol(val char: Char, val x: Int, val y: Int)
+
+    fun getChar(lines: List<String>, lineIndex: Int, charIndex: Int): List<Symbol> {
+        if (lineIndex < 0 || lineIndex >= lines.size) return emptyList()
+        if (charIndex < 0 || charIndex >= lines[lineIndex].length) return emptyList()
+        return listOf(Symbol(lines[lineIndex][charIndex], lineIndex, charIndex))
     }
 
-    fun isSymbolInRange(lines: List<String>, lineIndex: Int, indexStart: Int, indexEnd: Int): Boolean {
-        return (indexStart..indexEnd).map { isSymbol(lines, lineIndex, it) }.any { it }
+    fun getChars(lines: List<String>, lineIndex: Int, indexStart: Int, indexEnd: Int): List<Symbol> {
+        return (indexStart..indexEnd).flatMap { getChar(lines, lineIndex, it) }
     }
 
-    fun solve1(lines: List<String>): Long {
-        val parts = mutableListOf<Long>()
+    fun solveParts(lines: List<String>, consumer: BiConsumer<Long, List<Symbol>>) {
         lines.forEachIndexed { lineIndex, line ->
             var partIndex = -1
             for (i in line.indices) {
                 if (line[i].isDigit()) {
                     if (i == line.length - 1 || !line[i + 1].isDigit()) {
-                        if (isSymbol(lines, lineIndex, partIndex) ||
-                            isSymbol(lines, lineIndex, i + 1) ||
-                            isSymbolInRange(lines, lineIndex - 1, partIndex, i + 1) ||
-                            isSymbolInRange(lines, lineIndex + 1, partIndex, i + 1)
-                        ) {
-                            parts.add(line.substring(partIndex + 1, i + 1).toLong())
-                        }
+                        val symbols = getChar(lines, lineIndex, partIndex) +
+                                getChar(lines, lineIndex, i + 1) +
+                                getChars(lines, lineIndex - 1, partIndex, i + 1) +
+                                getChars(lines, lineIndex + 1, partIndex, i + 1)
+                        consumer.accept(line.substring(partIndex + 1, i + 1).toLong(), symbols)
                         partIndex = i
                     }
                 } else {
@@ -43,47 +43,23 @@ fun main() {
                 }
             }
         }
+    }
+
+    fun solve1(lines: List<String>): Long {
+        val parts = mutableListOf<Long>()
+        solveParts(lines) { part, symbols ->
+            if (symbols.map { it.char }.any { !it.isDigit() && it != '.' }) {
+                parts.add(part)
+            }
+        }
         return parts.sum()
     }
 
-    data class Star(val x: Int, val y: Int)
-
-    fun getStar(lines: List<String>, lineIndex: Int, charIndex: Int): List<Star> {
-        if (lineIndex < 0 || lineIndex >= lines.size) return emptyList()
-        if (charIndex < 0 || charIndex >= lines[lineIndex].length) return emptyList()
-        val char = lines[lineIndex][charIndex]
-        if (char == '*') {
-            return listOf(Star(lineIndex, charIndex))
-        }
-        return emptyList()
-    }
-
-    fun getStars(lines: List<String>, lineIndex: Int, indexStart: Int, indexEnd: Int): List<Star> {
-        return (indexStart..indexEnd).flatMap { getStar(lines, lineIndex, it) }
-    }
-
     fun solve2(lines: List<String>): Long {
-        val starsWithParts = mutableMapOf<Star, List<Long>>()
-        lines.forEachIndexed { lineIndex, line ->
-            var partIndex = -1
-            for (i in line.indices) {
-                if (line[i].isDigit()) {
-                    if (i == line.length - 1 || !line[i + 1].isDigit()) {
-                        val stars = getStar(lines, lineIndex, partIndex) +
-                                getStar(lines, lineIndex, i + 1) +
-                                getStars(lines, lineIndex - 1, partIndex, i + 1) +
-                                getStars(lines, lineIndex + 1, partIndex, i + 1)
-                        if (stars.isNotEmpty()) {
-                            val part = line.substring(partIndex + 1, i + 1).toLong()
-                            stars.forEach {
-                                starsWithParts[it] = (starsWithParts[it] ?: emptyList()) + listOf(part)
-                            }
-                        }
-                        partIndex = i
-                    }
-                } else {
-                    partIndex = i
-                }
+        val starsWithParts = mutableMapOf<Symbol, List<Long>>()
+        solveParts(lines) { part, symbols ->
+            symbols.filter { it.char == '*' }.forEach {
+                starsWithParts[it] = (starsWithParts[it] ?: emptyList()) + listOf(part)
             }
         }
 
