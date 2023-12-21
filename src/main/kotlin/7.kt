@@ -5,20 +5,16 @@ fun main() {
             "KTJJT 220\n" +
             "QQQJA 483"
 
-
     fun parseInput(lines: List<String>) = lines.map { line ->
         val tokens = line.split(" ")
-        val hand = tokens[0].toCharArray()
-        val bid = tokens[1].toLong()
-        hand to bid
+        tokens[0].toCharArray() to tokens[1].toLong()
     }
 
     val strengthsWithoutJoker = listOf('2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A')
     val strengthsWithJoker = listOf('J', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'Q', 'K', 'A')
 
     fun getType(hand: CharArray): Long {
-        val grouped = hand.groupBy { it }
-        val occurrences = grouped.entries.map { it.value.size }
+        val occurrences = hand.groupBy { it }.entries.map { it.value.size }
         val maxOccurrence = occurrences.maxOf { it }
         return when (maxOccurrence) {
             5 -> 1000L // five of a kind
@@ -54,10 +50,9 @@ fun main() {
     }
 
     fun findHandsWithJokerAtIndex(hand: CharArray, index: Int, hands: MutableList<CharArray>): List<CharArray> {
-        if (index >= hand.size) {
-            return listOf(hand)
-        }
-        return if (hand[index] != 'J') {
+        return if (index >= hand.size) {
+            listOf(hand)
+        } else if (hand[index] != 'J') {
             findHandsWithJokerAtIndex(hand, index + 1, hands)
         } else {
             strengthsWithoutJoker.flatMap {
@@ -69,14 +64,12 @@ fun main() {
     }
 
     fun getTypeWithJokerRekursive(hand: CharArray): Long {
-        val hands = findHandsWithJokerAtIndex(hand, 0, mutableListOf())
-        return hands.maxOf { getType(it) }
+        return findHandsWithJokerAtIndex(hand, 0, mutableListOf()).maxOf { getType(it) }
     }
 
     fun solve(lines: List<String>, strengths: List<Char>, typeProvider: (Pair<CharArray, Long>) -> Long): Long {
         val comparator = compareBy(typeProvider).thenComparing { a, b -> compareHands(a.first, b.first, strengths) }
-        val sortedHands = parseInput(lines).sortedWith(comparator)
-        return sortedHands.mapIndexed { index, hand -> (index + 1) * hand.second }.sum()
+        return parseInput(lines).sortedWith(comparator).mapIndexed { index, hand -> (index + 1) * hand.second }.sum()
     }
 
     fun solve1(lines: List<String>): Long {
