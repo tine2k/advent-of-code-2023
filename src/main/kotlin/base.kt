@@ -1,5 +1,7 @@
 import org.apache.commons.io.IOUtils
 import java.io.StringReader
+import kotlin.time.measureTime
+import kotlin.time.measureTimedValue
 
 val day = Thread.currentThread().stackTrace[2].fileName!!.split(".")[0]
 
@@ -29,9 +31,13 @@ fun solve(solveFn: (List<String>) -> Long, input: List<String> = getInputFile())
 }
 
 fun solveString(solveFn: (List<String>) -> String, input: List<String> = getInputFile()) {
-    val solution = solveFn(input)
+    val (solution, timeTaken) = measureTimedValue {
+        solveFn(input)
+    }
     println()
     println("➡️ $solution ⬅️")
+    println()
+    println("⏳ $timeTaken ⏳")
     println()
 }
 

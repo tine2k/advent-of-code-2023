@@ -34,16 +34,11 @@ fun main() {
             "56 93 4"
 
     data class SeedMap(val source: Long, val target: Long, val length: Long) {
-        fun map(input: Long): Long? {
-            if (input in source..<(source + length)) {
-                return target + input - source
-            }
-            return null
-        }
-
-        fun mapReverse(input: Long): Long? {
-            if (input in target..<(target + length)) {
-                return source + input - target
+        fun map(input: Long, reversed: Boolean): Long? {
+            val c1 = if (reversed) target else source
+            val c2 = if (reversed) source else target
+            if (input in c1..<(c1 + length)) {
+                return c2 + input - c1
             }
             return null
         }
@@ -67,19 +62,9 @@ fun main() {
         return Pair(seeds, seedMaps)
     }
 
-    fun mapSeed(input: Long, seedMaps: List<SeedMap>): Long {
+    fun mapSeed(input: Long, seedMaps: List<SeedMap>, reversed: Boolean): Long {
         seedMaps.forEach {
-            val result = it.map(input)
-            if (result != null) {
-                return result
-            }
-        }
-        return input
-    }
-
-    fun mapSeedReversed(input: Long, seedMaps: List<SeedMap>): Long {
-        seedMaps.reversed().forEach {
-            val result = it.mapReverse(input)
+            val result = it.map(input, reversed)
             if (result != null) {
                 return result
             }
@@ -91,7 +76,7 @@ fun main() {
         return seeds.minOf { seed ->
             var value = seed
             seedMaps.forEach {
-                value = mapSeed(value, it)
+                value = mapSeed(value, it, false)
             }
             value
         }
@@ -99,11 +84,11 @@ fun main() {
 
     fun findLowestLocation(seeds: List<LongRange>, seedMaps: List<List<SeedMap>>): Long {
         val maxLocation = seedMaps.last().maxOf { it.target + it.length }
-        val seedMapsWithoutLocation = seedMaps.subList(0, seedMaps.size).reversed()
+        val seedMapsWithoutLocation = seedMaps.subList(0, seedMaps.size).reversed().map { it.reversed() }
         for (location in 0L..maxLocation) {
             var result = location
             seedMapsWithoutLocation.forEach {
-                result = mapSeedReversed(result, it)
+                result = mapSeed(result, it, true)
             }
             if (seeds.any { it.contains(result) }) {
                 return location
