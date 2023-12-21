@@ -1,3 +1,5 @@
+import Direction.*
+
 fun main() {
     val testInput = "2413432311323\n" +
             "3215453535623\n" +
@@ -13,43 +15,85 @@ fun main() {
             "2546548887735\n" +
             "4322674655533"
 
-    fun getPathInDirection(lastDir: Direction, pathInsameDirection: Int, intendedDir: Direction): Int {
+    val testInput2 = "111111111111\n" +
+            "999999999991\n" +
+            "999999999991\n" +
+            "999999999991\n" +
+            "999999999991"
+
+    fun getPathInDirection(lastDir: Direction, pathInSameDirection: Int, intendedDir: Direction): Int {
         return if (lastDir == intendedDir) {
-            pathInsameDirection + 1
+            pathInSameDirection + 1
         } else {
             1
         }
     }
 
-    fun findPath(lines: List<String>, p: Point, curLength: Long, direction: Direction, pathInsameDirection: Int): Long {
-        val values = mutableListOf<Long>()
+    fun findPath(
+        lines: List<String>,
+        p: Point,
+        prevHeat: Long,
+        direction: Direction,
+        pathInSameDirection: Int,
+        solutions: MutableList<Long>,
+        cache: MutableMap<PointDirection, Long>,
+        maxPath: Int,
+        minPath: Int,
+        steps: List<Point>
+    ) {
         val heat = lines[p.y][p.x].digitToInt()
-        if (p.x < lines[0].length - 1 && !(direction == Direction.EAST && pathInsameDirection >= 3)) {
-            val nextPath = getPathInDirection(direction, pathInsameDirection, Direction.EAST)
-            values.add(findPath(lines, Point(p.x + 1, p.y), curLength + heat, Direction.EAST, nextPath))
-        }
-        if (p.y < lines.size - 1 && !(direction == Direction.SOUTH && pathInsameDirection >= 3) && direction != Direction.NORTH) {
-            val nextPath = getPathInDirection(direction, pathInsameDirection, Direction.SOUTH)
-            values.add(findPath(lines, Point(p.x, p.y + 1), curLength + heat, Direction.SOUTH, nextPath))
-        }
-        if (p.y > 0 && !(direction == Direction.NORTH && pathInsameDirection >= 3) && direction != Direction.SOUTH) {
-            val nextPath = getPathInDirection(direction, pathInsameDirection, Direction.NORTH )
-            values.add(findPath(lines, Point(p.x, p.y - 1), curLength + heat, Direction.NORTH, nextPath))
+        val curHeat = prevHeat + heat
+
+        val pointDirection = PointDirection(p, direction, pathInSameDirection)
+        if (cache.getOrDefault(pointDirection, Long.MAX_VALUE) <= curHeat) {
+            return
         }
 
-        return if (values.isEmpty()) {
-            curLength
-        } else {
-            curLength + values.min()
+        if (solutions.isNotEmpty() && curHeat >= solutions.min()) {
+            return
         }
+        cache[pointDirection] = curHeat
+
+        if (p.y == lines.size - 1 && p.x == lines[0].length - 1 && pathInSameDirection >= minPath) {
+            solutions.add(curHeat)
+            return
+        }
+        val newSteps = steps + listOf(p)
+
+        if (p.x < lines[0].length - 1 && !(direction == EAST && pathInSameDirection >= maxPath) && (direction == EAST || pathInSameDirection >= minPath) && direction != WEST) {
+            val nextPath = getPathInDirection(direction, pathInSameDirection, EAST)
+            findPath(lines, Point(p.x + 1, p.y), curHeat, EAST, nextPath, solutions, cache, maxPath, minPath, newSteps)
+        }
+        if (p.y < lines.size - 1 && !(direction == SOUTH && pathInSameDirection >= maxPath) && (direction == SOUTH || pathInSameDirection >= minPath) && direction != NORTH) {
+            val nextPath = getPathInDirection(direction, pathInSameDirection, SOUTH)
+            findPath(lines, Point(p.x, p.y + 1), curHeat, SOUTH, nextPath, solutions, cache, maxPath, minPath, newSteps)
+        }
+        if (p.y > 0 && !(direction == NORTH && pathInSameDirection >= maxPath) && (direction == NORTH || pathInSameDirection >= minPath) && direction != SOUTH) {
+            val nextPath = getPathInDirection(direction, pathInSameDirection, NORTH)
+            findPath(lines, Point(p.x, p.y - 1), curHeat, NORTH, nextPath, solutions, cache, maxPath, minPath, newSteps)
+        }
+        if (p.x > 0 && !(direction == WEST && pathInSameDirection >= maxPath) && (direction == WEST || pathInSameDirection >= minPath) && direction != EAST) {
+            val nextPath = getPathInDirection(direction, pathInSameDirection, WEST)
+            findPath(lines, Point(p.x - 1, p.y), curHeat, WEST, nextPath, solutions, cache, maxPath, minPath, newSteps)
+        }
+    }
+
+    fun solve(lines: List<String>, maxPath: Int, minPath: Int): Long {
+        val steps = mutableListOf<Point>()
+        val solutions = mutableListOf<Long>()
+        val cache = mutableMapOf<PointDirection, Long>()
+        val firstHeat = lines[0][0].digitToInt().toLong()
+        findPath(lines, Point(0, 0), -firstHeat, EAST, 0, solutions, cache, maxPath, minPath, steps)
+        findPath(lines, Point(0, 0), -firstHeat, SOUTH, 0, solutions, cache, maxPath, minPath, steps)
+        return solutions.min()
     }
 
     fun solve1(lines: List<String>): Long {
-        return findPath(lines, Point(0, 0), 0, Direction.EAST, 0)
+        return solve(lines, 3, 0)
     }
 
     fun solve2(lines: List<String>): Long {
-        return -1
+        return solve(lines, 10, 4)
     }
 
     header(1)
@@ -57,6 +101,9 @@ fun main() {
     solve(::solve1)
 
     header(2)
-    test(::solve2, testInput, 1337)
+    test(::solve2, testInput2, 71)
+    test(::solve2, testInput, 94)
     solve(::solve2)
 }
+
+data class PointDirection(val p: Point, val direction: Direction, val pathInSameDirection: Int)
