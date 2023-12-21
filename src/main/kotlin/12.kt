@@ -13,24 +13,20 @@ fun main() {
             "????.######..#####. 1,6,5\n" +
             "?###???????? 3,2,1"
 
-    fun findPath(
-        input: CharArray,
-        results: List<Int>,
-        indexInput: Int,
-        groupCountInput: Int,
-        groupOpenInput: Boolean,
-        groupMemberCountInput: Int,
-        solutionOutput: CharArray
-    ): Long {
-        var index = indexInput
-        var groupCount = groupCountInput
-        var groupMemberCount = groupMemberCountInput
-        var groupOpen = groupOpenInput
+
+    fun findPath(inv: Invocation, recursiveCallback: (inv: Invocation) -> Long): Long {
+        val input = inv.input.toCharArray()
+        val results = inv.results
+        var index = 0
+        var groupCount = inv.groupCountInput
+        var groupMemberCount = inv.groupMemberCountInput
+        var groupOpen = inv.groupOpenInput
         var solutions = 0L
+        val invocationsToDo = mutableListOf<Invocation>()
         while (index < input.size) {
             val missingGroups = results.size - (groupCount + 1)
             if (missingGroups * 2 > input.size - index + 1) {
-                return solutions
+                break
             }
 
             when (input[index]) {
@@ -39,7 +35,7 @@ fun main() {
                         groupCount++
                         groupOpen = true
                         if (groupCount > results.size - 1) {
-                            return solutions
+                            break
                         }
                     }
                     groupMemberCount++
@@ -49,37 +45,33 @@ fun main() {
                     if (groupOpen) {
                         if (groupMemberCount < results[groupCount]) {
                             groupMemberCount++ // use #
-                            solutionOutput[index] = '#'
                         } else if (groupMemberCount == results[groupCount]) {
                             groupOpen = false
                             groupMemberCount = 0
-                            solutionOutput[index] = '.'
                         } else {
-                            return solutions
+                            break
                         }
                     } else {
                         if (groupCount < results.size - 1) {
-                            val forkedSolution = solutionOutput.clone()
-                            forkedSolution[index] = '#'
-                            solutions += findPath(
-                                input,
-                                results,
-                                index + 1,
-                                groupCount + 1,
-                                true,
-                                groupMemberCount + 1,
-                                forkedSolution
-                            )
+                            val newInput = if (index + 1 < input.size) {
+                                input.copyOfRange(index + 1, input.size)
+                            } else {
+                                CharArray(0)
+                            }
+                            val newResults = if (groupCount >= 0) {
+                                results.subList(groupCount + 1, results.size)
+                            } else {
+                                results
+                            }
+                            invocationsToDo.add(Invocation(String(newInput), newResults, 0, true, groupMemberCount + 1))
                         }
-
-                        solutionOutput[index] = '.'
                     }
                 }
 
                 '.' -> {
                     if (groupOpen) {
                         if (groupMemberCount != results[groupCount]) {
-                            return solutions
+                            break
                         }
                         groupOpen = false
                         groupMemberCount = 0
@@ -88,25 +80,28 @@ fun main() {
             }
             index++
         }
-        if (groupOpen && groupMemberCount != results[groupCount] || groupCount != results.size - 1) {
-            return solutions
-        } else {
+
+        if (!(groupOpen && groupCount < results.size && groupMemberCount != results[groupCount] || groupCount != results.size - 1)) {
             solutions++
-//            solutionsArray.add(solutionOutput)
-//            if (findPattern(solutionOutput) != results) {
-//                println("Solution found: ${String(solutionOutput)}")
-//            }
-//            if (solutions % 10_000 == 0L) {
-//                println("solutions found: $solutions")
-//            }
-//            println("Solution found: ${String(solutionOutput)}")
         }
+        solutions += invocationsToDo.sumOf { recursiveCallback(it) }
         return solutions
     }
 
+    fun findPathCached(invocation: Invocation, cache: MutableMap<Invocation, Long>): Long {
+        return if (!cache.contains(invocation)) {
+            val result = findPath(invocation) { findPathCached(it, cache) }
+            cache[invocation] = result
+            result
+        } else {
+            cache[invocation]!!
+        }
+    }
 
-    fun solveLine(input: CharArray, results: List<Int>): Long {
-        val result = findPath(input, results, 0, -1, false, 0, input.clone())
+    fun solveLine(input: String, results: List<Int>): Long {
+        val cache = mutableMapOf<Invocation, Long>()
+        val invocation = Invocation(input, results, -1, false, 0)
+        val result = findPathCached(invocation, cache)
         return result
     }
 
@@ -115,8 +110,7 @@ fun main() {
             val tokens = line.split(" ")
             val input = tokens[0].toCharArray()
             val results = tokens[1].split(",").map { it.toInt() }
-//            println("checking ${String(input)}")
-            val solutions = solveLine(input, results)
+            val solutions = solveLine(String(input), results)
             solutions
         }
     }
@@ -126,8 +120,9 @@ fun main() {
             printProgress(i, lines)
             val tokens = line.split(" ")
             val input = "${tokens[0]}?${tokens[0]}?${tokens[0]}?${tokens[0]}?${tokens[0]}".toCharArray()
-            val results = "${tokens[1]},${tokens[1]},${tokens[1]},${tokens[1]},${tokens[1]}".split(",").map { it.toInt() }
-            val solutions = solveLine(input, results)
+            val results =
+                "${tokens[1]},${tokens[1]},${tokens[1]},${tokens[1]},${tokens[1]}".split(",").map { it.toInt() }
+            val solutions = solveLine(String(input), results)
             solutions
         }.sum()
     }
@@ -141,3 +136,11 @@ fun main() {
     test(::solve2, testInput2, 525152)
     solve(::solve2)
 }
+
+data class Invocation(
+    val input: String,
+    val results: List<Int>,
+    val groupCountInput: Int,
+    val groupOpenInput: Boolean,
+    val groupMemberCountInput: Int
+)
