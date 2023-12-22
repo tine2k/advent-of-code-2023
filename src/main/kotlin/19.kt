@@ -1,3 +1,6 @@
+import kotlin.math.max
+import kotlin.math.min
+
 fun main() {
     val testInput = "px{a<2006:qkq,m>2090:A,rfg}\n" +
             "pv{a>1716:R,A}\n" +
@@ -23,7 +26,7 @@ fun main() {
             if (cond.contains(":")) {
                 val condTokens = cond.split(":")
                 val compareTokens = condTokens[0].split("<", ">")
-                Rule(Condition(compareTokens[0], condTokens[0].contains("<"), compareTokens[1].toLong()), condTokens[1])
+                Rule(Condition(compareTokens[0], condTokens[0].contains("<"), compareTokens[1].toInt()), condTokens[1])
             } else {
                 Rule(null, cond)
             }
@@ -43,20 +46,29 @@ fun main() {
         error("no rules matches")
     }
 
-    fun solve1(lines: List<String>): Long {
+    fun parseInput(lines: List<String>): Pair<Map<String, Workflow>, List<Map<String, Long>>> {
         val blankLine = lines.indexOf("")
         val workflows = lines.subList(0, blankLine).associate { parseWorkflow(it) }
         val ratings = lines.subList(blankLine + 1, lines.size)
             .map { it.substring(1, it.length - 1) }
             .map { it.split(",").associate { v -> v.split("=").let { t -> t[0] to t[1].toLong() } } }
+        return workflows to ratings
+    }
+
+    fun findResult(workflows: Map<String, Workflow>, rating: Map<String, Long>): String {
+        var nextFlow: Workflow?
+        var result = "in"
+        while (result != "A" && result != "R") {
+            nextFlow = workflows[result]!!
+            result = getResult(rating, nextFlow)
+        }
+        return result
+    }
+
+    fun solve1(lines: List<String>): Long {
+        val (workflows, ratings) = parseInput(lines)
         return ratings.sumOf { rating ->
-            var nextFlow: Workflow?
-            var result = "in"
-            while (result != "A" && result != "R") {
-                nextFlow = workflows[result]!!
-                result = getResult(rating, nextFlow)
-            }
-            if (result == "A") {
+            if (findResult(workflows, rating) == "A") {
                 rating.values.sum()
             } else {
                 0L
@@ -64,8 +76,79 @@ fun main() {
         }
     }
 
+    fun applyCondition(c: Condition, s: MutableMap<String, IntRange>) {
+        if (s[c.variable]!!.isEmpty()) return
+        if (c.lessThen) {
+            s[c.variable] = s[c.variable]!!.first..min(s[c.variable]!!.last, c.value - 1)
+        } else {
+            s[c.variable] = max(c.value + 1, s[c.variable]!!.first)..s[c.variable]!!.last
+        }
+    }
+
+    fun applyRule(
+        s: Map<String, IntRange>,
+        rule: Rule,
+        rules: List<Rule>,
+        key: String
+    ): Pair<String, MutableMap<String, IntRange>>? {
+        val newS = s.toMutableMap()
+        rules.subList(0, rules.indexOf(rule) + 1)
+            .filter { it.condition != null }
+            .forEach { otherRule ->
+                if (otherRule != rule) {
+                    val condition = otherRule.condition
+                    var offByOne = 1
+                    if (condition!!.lessThen) {
+                        offByOne = -1
+                    }
+                    val invertedCond = condition.copy(
+                        lessThen = !condition.lessThen,
+                        value = condition.value + offByOne
+                    )
+                    applyCondition(invertedCond, newS)
+
+                } else {
+                    applyCondition(rule.condition!!, newS)
+                }
+            }
+
+        return if (!newS.values.all { it.isEmpty() }) {
+            key to newS
+        } else {
+            null
+        }
+    }
+
+    fun followPath(
+        input: String,
+        workflows: Map<String, Workflow>,
+        s: Map<String, IntRange>
+    ): List<Pair<String, MutableMap<String, IntRange>>> {
+        return workflows
+            .filter { e -> e.value.rules.any { rule -> rule.result == input } }
+            .flatMap { e ->
+                e.value.rules
+                    .filter { rule -> rule.result == input }
+                    .mapNotNull { rule -> applyRule(s, rule, e.value.rules, e.key) }
+            }
+    }
+
     fun solve2(lines: List<String>): Long {
-        return -1
+        val (workflows) = parseInput(lines)
+        val validCombinations = mutableMapOf("x" to 1..4000, "m" to 1..4000, "a" to 1..4000, "s" to 1..4000)
+        val combinations = mutableListOf("A" to validCombinations)
+        val solutions = mutableListOf<MutableMap<String, IntRange>>()
+        while (combinations.isNotEmpty()) {
+            val first = combinations.first()
+            if (first.first == "in" && first.second.values.none { it.isEmpty() }) {
+                solutions.add(first.second)
+            } else {
+                combinations.addAll(followPath(first.first, workflows, first.second))
+            }
+            combinations.remove(first)
+        }
+
+        return solutions.sumOf { it.values.map { v -> v.count().toLong() }.reduce { a, c -> a * c } }
     }
 
     header(1)
@@ -73,7 +156,7 @@ fun main() {
     solve(::solve1)
 
     header(2)
-    test(::solve2, testInput, 1337)
+    test(::solve2, testInput, 167409079868000)
     solve(::solve2)
 }
 
@@ -81,4 +164,12 @@ data class Workflow(val rules: List<Rule>)
 
 data class Rule(val condition: Condition?, val result: String)
 
-data class Condition(val variable: String, val lessThen: Boolean, val value: Long)
+data class Condition(val variable: String, val lessThen: Boolean, val value: Int) {
+    override fun toString(): String {
+        return if (lessThen) {
+            "$variable < $value"
+        } else {
+            "$variable > $value"
+        }
+    }
+}
