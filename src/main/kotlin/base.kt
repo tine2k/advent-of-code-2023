@@ -46,7 +46,11 @@ fun getInputFile(): List<String> {
 }
 
 fun <T> printProgress(i: Int, lines: List<T>) {
-    print("calculating ${i+1} of ${lines.size}...\r")
+    printProgress(i, lines.size)
+}
+
+fun printProgress(i: Int, total: Int) {
+    print("calculating ${i+1} of ${total}...\r")
 }
 
 enum class Direction {
