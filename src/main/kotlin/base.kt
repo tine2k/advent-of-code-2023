@@ -53,6 +53,10 @@ fun printProgress(i: Int, total: Int) {
     print("calculating ${i+1} of ${total}...\r")
 }
 
+fun printProgress(i: Int) {
+    print("calculating ${i+1}...\r")
+}
+
 enum class Direction {
     NORTH, SOUTH, WEST, EAST
 }

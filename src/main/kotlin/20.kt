@@ -55,7 +55,7 @@ fun main() {
         return pulses
     }
 
-    fun solve1(lines: List<String>): Long {
+    fun parseInputData(lines: List<String>): Triple<Map<String, List<String>>, MutableMap<String, Boolean>, Map<String, MutableMap<String, Boolean>>> {
         val input = lines.associate { line ->
             val token = line.split(" -> ")
             token[0] to token[1].split(", ").map { it.trim() }
@@ -68,22 +68,33 @@ fun main() {
             .map { e ->
                 e.key to rules.filter { it.value.contains(e.key) }.keys.associateWith { false }.toMutableMap()
             }.toMap()
+        return Triple(rules, flipflops, inverters)
+    }
+
+    fun solve1(lines: List<String>): Long {
+        val (rules, flipflops, inverters) = parseInputData(lines)
 
         val allPulses = mutableListOf<Pulse>()
         for (i in 0..<1000) {
             printProgress(i, 1000)
             val newPulses = pushButton(rules, flipflops, inverters)
             allPulses.addAll(newPulses)
-            if (i < 3) {
-                newPulses.forEach { println(it) }
-                println(" ")
-            }
         }
         return allPulses.count { it.high }.toLong() * allPulses.count { !it.high }
     }
 
     fun solve2(lines: List<String>): Long {
-        return -1
+        val (rules, flipflops, inverters) = parseInputData(lines)
+
+        var i = 0
+        while(true) {
+            printProgress(i)
+            i++
+            val newPulses = pushButton(rules, flipflops, inverters)
+            if (newPulses.any { p -> !p.high && p.output == "rx" }) {
+                return i.toLong()
+            }
+        }
     }
 
     header(1)
@@ -92,7 +103,6 @@ fun main() {
     solve(::solve1)
 
     header(2)
-    test(::solve2, testInput1, 1337)
     solve(::solve2)
 }
 
