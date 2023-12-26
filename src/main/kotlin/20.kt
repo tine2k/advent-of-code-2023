@@ -84,17 +84,21 @@ fun main() {
     }
 
     fun solve2(lines: List<String>): Long {
-        val (rules, flipflops, inverters) = parseInputData(lines)
-
-        var i = 0
-        while(true) {
-            printProgress(i)
-            i++
-            val newPulses = pushButton(rules, flipflops, inverters)
-            if (newPulses.any { p -> !p.high && p.output == "rx" }) {
-                return i.toLong()
+        val (rules, _, _) = parseInputData(lines)
+        val rxRules = rules.filter { it.value.contains("rx") }
+        val rxInputs = rules.filter { rxRules.keys.contains(it.value.first()) }.keys
+        return rxInputs.map {
+            val (_, flipflops, inverters) = parseInputData(lines)
+            var i = 0
+            while (true) {
+                i++
+                val newPulses = pushButton(rules, flipflops, inverters)
+                if (newPulses.any { p -> p.output == it && !p.high }) {
+                    break
+                }
             }
-        }
+            i.toLong()
+        }.reduce { a, v -> a * v }
     }
 
     header(1)
