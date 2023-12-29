@@ -24,7 +24,7 @@ fun main() {
             "#####################.#"
 
     fun getLoc(lines: List<String>, location: Point): Char {
-        return if (location.x < 0 || location.y < 0 || location.x >= lines[0].length || location.y >= lines.size) {
+        return if (location.x < 0 || location.y < 1 || location.x >= lines[0].length || location.y >= lines.size) {
             '#'
         } else {
             lines[location.y][location.x]
@@ -54,32 +54,53 @@ fun main() {
         )
     }
 
-    fun findPath(lines: List<String>, pastPath: Set<Point>, honorSlopes: Boolean): List<Set<Point>> {
-        val currentPath = pastPath.toMutableSet()
-        val allPaths = mutableListOf<Set<Point>>()
+    fun fillConnections(
+        lines: List<String>,
+        connections: MutableSet<Connection>,
+        prevLocation: Point,
+        location: Point,
+        directed: Boolean
+    ): Point? {
+        var curLoc = location
+        val currentPath = mutableSetOf(location)
+        var end: Point? = null
         while (true) {
-            val location = currentPath.last()
-            val nextDirections = getNextDirections(lines, location, honorSlopes) - currentPath
+            val nextDirections = getNextDirections(lines, curLoc, directed) - currentPath - prevLocation
             if (nextDirections.isEmpty()) {
-                if (location == Point(lines[0].length - 2, lines.size - 1)) {
-                    allPaths.add(currentPath)
-                }
                 break
             } else if (nextDirections.size == 1) {
-                currentPath.add(nextDirections[0])
+                curLoc = nextDirections[0]
+                currentPath.add(curLoc)
+                if (curLoc.y == lines.size - 1) {
+                    connections.add(Connection(prevLocation, curLoc, currentPath.size))
+                    end = curLoc
+                    break
+                }
             } else {
-                allPaths.addAll(nextDirections.flatMap { findPath(lines, currentPath + listOf(it), honorSlopes) })
+                val existingConnection = connections.filter { it.isConnectedTo(curLoc, directed) }
+                if (existingConnection.any { it.isConnectedTo(prevLocation, directed) && it.weight != currentPath.size }) {
+                    error("Invalid state")
+                }
+                if (existingConnection.none { it.isConnectedTo(prevLocation, directed) }) {
+                    connections.add(Connection(prevLocation, curLoc, currentPath.size))
+                }
+
+                if (existingConnection.isEmpty()) {
+                    nextDirections.forEach {
+                        fillConnections(lines, connections, curLoc, it, directed)?.let { p -> end = p }
+                    }
+                }
                 break
             }
         }
-        return allPaths
+        return end
     }
 
-    fun printMap(lines: List<String>, points: Set<Point> ) {
+    fun printMap(lines: List<String>, points: Set<Point>) {
         for (y in 0..<lines.size) {
             for (x in 0..<lines[0].length) {
-                if (points.contains(Point(x,y))) {
-                    print("O")
+                if (points.contains(Point(x, y))) {
+                    print(points.indexOf(Point(x, y)))
                 } else {
                     print(lines[y][x])
                 }
@@ -89,15 +110,53 @@ fun main() {
         println("")
     }
 
+    fun findPaths(
+        lines: List<String>,
+        connections: Set<Connection>,
+        loc: Point,
+        end: Point,
+        path: Set<Point>,
+        weight: Long,
+        directed: Boolean
+    ): List<Long> {
+        if (loc == end) {
+            return listOf(weight)
+        }
+        val solutions = mutableListOf<Long>()
+        val nextPaths = connections.filter { it.isConnectedTo(loc, directed) }
+        nextPaths.forEach {
+            val connectedNode = it.getConnectionTo(loc)!!
+            if (!path.contains(connectedNode.first)) {
+                val newSolutions = findPaths(
+                    lines,
+                    connections,
+                    connectedNode.first,
+                    end,
+                    path + loc,
+                    weight + connectedNode.second,
+                    directed
+                )
+                val bestSolution = solutions.maxOrNull() ?: 0
+                solutions.addAll(newSolutions.filter { sol -> sol > bestSolution })
+            }
+        }
+        return solutions
+    }
+
+    fun solve(lines: List<String>, directed: Boolean): Long {
+        val start = Point(1, 1)
+        val connections = mutableSetOf<Connection>()
+        val end = fillConnections(lines, connections, start, start, directed)!!
+        val paths = findPaths(lines, connections, start, end, mutableSetOf(start), 0, directed)
+        return paths.max()
+    }
+
     fun solve1(lines: List<String>): Long {
-        val allPaths = findPath(lines, setOf(Point(1, 1)), true)
-        return allPaths.maxOf { it.size }.toLong()
+        return solve(lines, true)
     }
 
     fun solve2(lines: List<String>): Long {
-        val allPaths = findPath(lines, setOf(Point(1, 1)), false)
-        printMap(lines, allPaths.sortedByDescending { it.size }.first())
-        return allPaths.maxOf { it.size }.toLong()
+        return solve(lines, false)
     }
 
     header(1)
@@ -107,4 +166,23 @@ fun main() {
     header(2)
     test(::solve2, testInput, 154)
     solve(::solve2)
+}
+
+data class Connection(val a: Point, val b: Point, val weight: Int) {
+
+    fun isConnectedTo(p: Point, directed: Boolean): Boolean {
+        return if (directed) {
+            p == a
+        } else {
+            p == a || p == b
+        }
+    }
+
+    fun getConnectionTo(p: Point): Pair<Point, Int>? {
+        return when (p) {
+            a -> b to weight
+            b -> a to weight
+            else -> null
+        }
+    }
 }
