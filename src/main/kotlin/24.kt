@@ -1,3 +1,7 @@
+import org.la4j.Matrix
+import org.la4j.Vector
+import org.la4j.linear.GaussianSolver
+
 fun main() {
     val testInput = "19, 13, 30 @ -2,  1, -2\n" +
             "18, 19, 22 @ -1, -1, -2\n" +
@@ -63,8 +67,50 @@ fun main() {
         return solve1(lines, 200000000000000.0 to 400000000000000.0)
     }
 
+    fun solveWithGaussianElimination(input: List<Pair<DoubleArray, Double>>): Vector {
+        val matrix = Matrix.from2DArray(input.map { it.first }.toTypedArray())
+        val vector = Vector.fromArray(input.map { it.second }.toDoubleArray())
+        val gs = GaussianSolver(matrix)
+        return gs.solve(vector)
+    }
+
     fun solve2(lines: List<String>): Long {
-        return -1
+        val stones = parseInputData(lines).subList(0,5)
+
+        // inspired by explanation of @ash42: https://github.com/ash42/adventofcode/blob/main/adventofcode2023/src/nl/michielgraat/adventofcode2023/day24/Day24.java
+        // desired rock as X,Y,Z,VX,VY,VZ.
+        // any hailstone x,y,z,vx,vy,vz
+        // t = (X-x)/(vx-VX)
+
+        // formula for X, Y:
+        // (vy'-vy)X + (vx-vx')Y + (y-y')VX + (x'-x)VY = - xvy + yvx + x'vy' - y'vx'
+        val input = stones.zipWithNext { a, b ->
+            arrayOf(
+                b.vel.y - a.vel.y,
+                a.vel.x - b.vel.x,
+                a.p.y - b.p.y,
+                b.p.x - a.p.x
+            ).map { it.toDouble() }.toDoubleArray() to
+                    (-a.p.x * a.vel.y + a.p.y * a.vel.x + b.p.x * b.vel.y - b.p.y * b.vel.x).toDouble()
+        }
+        val outputXY = solveWithGaussianElimination(input)
+
+        // formula for Z:
+        // (vz'-vz)X + (vx-vx')Z + (z-z')VX + (x'-x)VZ = - xvz + zvx + x'vz' - z'vx'
+        // or (vx-vx')Z + (x'-x)VZ = - xvz + zvx + x'vz' - z'vx' - (vz'-vz)X - (z-z')VX
+
+        val input2 = stones.zipWithNext { a, b ->
+            arrayOf(
+                b.vel.z - a.vel.z,
+                a.vel.x - b.vel.x,
+                a.p.z - b.p.z,
+                b.p.x - a.p.x,
+            ).map { it.toDouble() }.toDoubleArray() to
+                    (-a.p.x * a.vel.z + a.p.z * a.vel.x + b.p.x * b.vel.z - b.p.z * b.vel.x).toDouble()
+        }
+        val outputZ = solveWithGaussianElimination(input2)
+
+        return (outputXY[0] + outputXY[1] + outputZ[1]).toLong()
     }
 
     header(1)
@@ -72,7 +118,7 @@ fun main() {
     solve(::solve1Big)
 
     header(2)
-    test(::solve2, testInput, 1337)
+    test(::solve2, testInput, 47)
     solve(::solve2)
 }
 
