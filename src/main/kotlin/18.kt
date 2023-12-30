@@ -1,6 +1,4 @@
-import java.awt.Desktop
-import java.io.File
-import java.io.FileWriter
+import kotlin.math.abs
 
 fun main() {
     val testInput = "R 6 (#70c710)\n" +
@@ -18,134 +16,53 @@ fun main() {
             "L 2 (#015232)\n" +
             "U 2 (#7a21e3)"
 
-    fun printField(field: Set<Point>) {
-        val f = File.createTempFile("abc", ".txt")
-        val w = FileWriter(f)
-        for (y in field.minOf { it.y }..field.maxOf { it.y }) {
-            for (x in field.minOf { it.x }..field.maxOf { it.x }) {
-                if (field.contains(Point(x, y))) {
-                    w.write("#")
-                } else {
-                    w.write(" ")
-                }
-            }
-            w.write("\n")
-        }
-        w.close()
-        Desktop.getDesktop().open(f)
-    }
-
-    fun findEmptySquares(field: Set<Point>): MutableList<Point> {
-        val empty = mutableListOf<Point>()
-        for (y in field.minOf { it.y }..field.maxOf { it.y }) {
-            for (x in field.minOf { it.x }..field.maxOf { it.x }) {
-                if (!field.contains(Point(x, y))) {
-                    empty.add(Point(x, y))
-                }
-            }
-        }
-        return empty
-    }
-
-    fun findNeighbours(p: Point): List<Point> {
-        return listOf(
-            Point(p.x - 1, p.y - 1),
-            Point(p.x - 1, p.y),
-            Point(p.x - 1, p.y + 1),
-            Point(p.x, p.y - 1),
-            Point(p.x, p.y + 1),
-            Point(p.x + 1, p.y - 1),
-            Point(p.x + 1, p.y),
-            Point(p.x + 1, p.y + 1)
-        )
-    }
-
-    fun calcFieldSize(field: MutableSet<Point>): Long {
-        var result = field.size.toLong()
-        for (x in field.minOf { it.x }..field.maxOf { it.x }) {
-            var edgeCount = 0
-            var inside = false
-            for (y in field.minOf { it.y } - 1..field.maxOf { it.y }) {
-                if (field.contains(Point(x, y))) {
-                    edgeCount += 1
-                } else {
-                    if (edgeCount == 1) {
-                        inside = !inside
-                    }
-                    edgeCount = 0
-                }
-
-                if (inside && !field.contains(Point(x, y))) {
-                    result += 1
-                }
-            }
-        }
-        return result
-    }
-
-    fun solve1(lines: List<String>): Long {
-        var p = Point(0, 0)
-        val field = mutableSetOf<Point>()
-        lines.forEach { line ->
+    fun getDirections(lines: List<String>): List<Pair<Char, Long>> {
+        return lines.map { line ->
             val token = line.split(" ")
-            for (i in 0..<token[1].toInt()) {
-                when (token[0]) {
-                    "R" -> p = Point(p.x + 1, p.y)
-                    "L" -> p = Point(p.x - 1, p.y)
-                    "U" -> p = Point(p.x, p.y - 1)
-                    "D" -> p = Point(p.x, p.y + 1)
-                }
-                field.add(p)
-            }
+            token[0][0] to token[1].toLong()
         }
-//        printField(field)
-
-        return calcFieldSize(field)
-
-//        val emptySquares = findEmptySquares(field).toMutableSet()
-//        val xRange = field.minOf { it.x }..field.maxOf { it.x }
-//        val yRange = field.minOf { it.y }..field.maxOf { it.y }
-//        while (emptySquares.isNotEmpty()) {
-//            val newField = mutableSetOf<Point>()
-//            val valuesToCheck = mutableSetOf<Point>()
-//            valuesToCheck.add(emptySquares.first())
-//            while(valuesToCheck.isNotEmpty()) {
-//                val currentField = valuesToCheck.first()
-//                val emptyNeighbours = findNeighbours(currentField).intersect(emptySquares)
-//                newField.addAll(emptyNeighbours)
-//                valuesToCheck.addAll(emptyNeighbours)
-//                valuesToCheck.remove(currentField)
-//                emptySquares.removeAll(newField)
-//            }
-//            println("left to check: ${emptySquares.size}")
-//            if (newField.none { it.x == xRange.first || it.x == xRange.last || it.y == yRange.first || it.y == yRange.last }) {
-//                field.addAll(newField)
-//            }
-//        }
-//
-//        return field.size.toLong()
     }
 
-    fun solve2(lines: List<String>): Long {
-        var p = Point(0, 0)
-        val field = mutableSetOf<Point>()
-        lines.forEach { line ->
+    fun getDirectionsFromColorCode(lines: List<String>): List<Pair<Char, Long>> {
+        return lines.map { line ->
             val token = line.split(" ")
             val distance = token[2].substring(2, 7).toLong(radix = 16)
             val direction = token[2][7]
-            for (i in 0..<distance) {
-                when (direction) {
-                    '0' -> p = Point(p.x + 1, p.y)
-                    '2' -> p = Point(p.x - 1, p.y)
-                    '3' -> p = Point(p.x, p.y - 1)
-                    '1' -> p = Point(p.x, p.y + 1)
-                }
-                field.add(p)
-            }
+            direction to distance
         }
-//        printField(field)
+    }
 
-        return calcFieldSize(field)
+    fun getField(directions: List<Pair<Char, Long>>): Set<LPoint> {
+        var p = LPoint(0, 0)
+        val field = mutableSetOf<LPoint>()
+        directions.forEach { direction ->
+            when (direction.first) {
+                'R', '0' -> p = LPoint(p.x + direction.second, p.y)
+                'L', '2' -> p = LPoint(p.x - direction.second, p.y)
+                'U', '3' -> p = LPoint(p.x, p.y - direction.second)
+                'D', '1' -> p = LPoint(p.x, p.y + direction.second)
+            }
+            field.add(p)
+        }
+        return field
+    }
+
+    fun solve(directions: List<Pair<Char, Long>>): Long {
+        val field = getField(directions).reversed()
+        val closedField = field + field.first()
+        val border = closedField.zipWithNext { a, b -> abs(a.x - b.x) + abs(a.y - b.y) }.sum()
+        val shoelace1 = closedField.zipWithNext { a, b -> a.x * b.y }.sum()
+        val showlace2 = closedField.zipWithNext { a, b -> a.y * b.x }.sum()
+        val inside = abs(shoelace1 - showlace2) / 2 //https://en.wikipedia.org/wiki/Shoelace_formula
+        return inside + border / 2 + 1 // see https://en.wikipedia.org/wiki/Pick%27s_theorem
+    }
+
+    fun solve1(lines: List<String>): Long {
+        return solve(getDirections(lines))
+    }
+
+    fun solve2(lines: List<String>): Long {
+        return solve(getDirectionsFromColorCode(lines))
     }
 
     header(1)
@@ -156,3 +73,5 @@ fun main() {
     test(::solve2, testInput, 952408144115)
     solve(::solve2)
 }
+
+data class LPoint(val x: Long, val y: Long)
