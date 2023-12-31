@@ -1,7 +1,6 @@
-import org.jgrapht.alg.clustering.GirvanNewmanClustering
+import org.jgrapht.alg.flow.EdmondsKarpMFImpl
 import org.jgrapht.graph.DefaultEdge
 import org.jgrapht.graph.SimpleGraph
-
 
 fun main() {
     val testInput = "jqt: rhn xhk nvd\n" +
@@ -29,9 +28,23 @@ fun main() {
             }
         }
 
-        val girvanNewmanClustering = GirvanNewmanClustering(graph, 2)
-        val clusters = girvanNewmanClustering.clustering.clusters
-        return (clusters[0].size * clusters[1].size).toLong()
+//         slow approach (about 5s)
+//        val girvanNewmanClustering = GirvanNewmanClustering(graph, 2)
+//        val clusters = girvanNewmanClustering.clustering.clusters
+//        return (clusters[0].size * clusters[1].size).toLong()
+
+        // faster (2.5s)
+//        val cut = StoerWagnerMinimumCut(graph).minCut().size
+//        return (cut * (graph.vertexSet().size - cut)).toLong()
+
+        // fastest
+        val algo = EdmondsKarpMFImpl(graph)
+        val vertices = graph.vertexSet().toList()
+        var index = 1
+        do {
+            algo.calculateMaximumFlow(vertices.first(), vertices[++index])
+        } while (algo.cutEdges.size != 3)
+        return (algo.sinkPartition.size * algo.sourcePartition.size).toLong()
     }
 
     header(1)
